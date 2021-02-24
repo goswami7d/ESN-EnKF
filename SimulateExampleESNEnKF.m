@@ -1,6 +1,10 @@
+%%%% SimulateExampleESNEnKF.m %%%%%
+%%% by D. Goswami, 2020 %%%
+%%% Train and test an ESN-EnKF to predict a time-series
+
 clear;clc;
 
-trainLen = 2000;
+trainLen = 1000;
 testLen = 200;
 initLen = 200;
 
@@ -11,34 +15,38 @@ data=Xf;
 
 
 dataStateSize=size(data,2);
-a=0.3; %leakage rate
-resSize=1000; %reservoir size
-reg=1e-6; %regularization factor
-psi=@(x)tanh(x); %activation function
+a=0.7; %leakage rate
+resSize=2000; %reservoir size
+reg=1e-5; %regularization factor
+psi1=@(x)tanh(x); %activation function
 %%% Create and train the ESN
-[Wout, W, Win, x]=trainESN(data, data, psi, trainLen, initLen, resSize, a, reg);
+[Wout, W, Win, x]=trainESN(data, data, psi1, trainLen, initLen, resSize, a, reg);
 
-
-%% Testing the trained ESN
+%% 
+%x is initialized with training data and we continue from there.
+%H=[1 1;0 0];
+H=[0 0 0;0 1 0;0 0 0];
+h=@(z1) H*z1;
+EnsembleCovariance=0.01*eye(dataStateSize);
+ObservationCovariance=0.01*eye(dataStateSize);
+EnsembleSize=100;
 Y = zeros(dataStateSize,testLen);
-u = data(trainLen+1,:);
+u=30*ones(1,dataStateSize);
+%u = data(trainLen+1,:);
+%u_ensemble=randgen(EnsembleSize,u,EnsembleCovariance);
+u_ensemble=transpose(mvnrnd(u,EnsembleCovariance,EnsembleSize));
+%x = zeros(resSize,1);
 for t = 1:testLen 
-	%x = (1-a)*x + a*psi( Win*[1;u'] + W*x );
-	%y = Wout*[1;u';x];
-    [x,y]=reservoirupdate(u',x,Win,W,Wout,a,psi);
-	Y(:,t) = y;
-	% generative mode:
-	u = y';
-	% this would be a predictive mode:
-	%u = data(trainLen+t+1);
+    ObservationTrue=H*data(trainLen + t +1,:)'+transpose(mvnrnd(zeros(dataStateSize,1),ObservationCovariance));
+    [y_estbar,y_est,x]...
+    =EnKFESN(h,u_ensemble,ObservationTrue,ObservationCovariance,EnsembleSize,x,Win,W,Wout,a,psi1);
+    Y(:,t) = y_estbar;
+    u_ensemble=y_est;
 end
 
 errorLen = testLen;
 mse = sum(vecnorm(data(trainLen+2:trainLen+errorLen+1,:)'-Y(:,1:errorLen)))./errorLen;
 disp( ['MSE = ', num2str( mse )] );
-
-% plot some signals
-figure(1);
 
 for i=1:dataStateSize
     
@@ -71,4 +79,4 @@ ylabel('$L_2$ error','Interpreter', 'latex');
 title('$L_2$ error in estimation','Interpreter', 'latex');
 
 MSETimeSeries=vecnorm(data(trainLen+2:trainLen+errorLen+1,:)'-Y(:,1:errorLen))/(ymax);
-save('testESNError.mat', 'MSETimeSeries');
+save('testRCEnKFError.mat', 'MSETimeSeries');

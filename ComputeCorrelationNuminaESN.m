@@ -1,4 +1,13 @@
+%%%% ComputeCorrelationNuminaESN.m %%%%%
+%%% by D. Goswami, 2020 %%%
+%%% Compute correlation between true and estimated traffic data with 
+%%% reservoir observer for different number of observable nodes.
+%%% time-resolution is 15 minutes
+%%% A pre-trained ESN is loaded.
+
+
 clear; clc;
+%%% Load the pre-trained ESN
 load('TrainedRCNumina.mat');
 psi=@(x)0.5*(1+tanh(x)); %activation function
 

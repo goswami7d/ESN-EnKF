@@ -1,3 +1,6 @@
+%%%% Plots the correlation between true and predicted traffic data
+
+
 clear; clc;
 load('NuminaRCEnKFCorrelation.mat');
 load('NuminaRCCorrelationPredictive.mat');
